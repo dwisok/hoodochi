@@ -66,7 +66,7 @@ export function useBackend(): Backend {
   const [status, setStatus] = useState<WalletStatus>(() => (mode === 'demo' ? 'ready' : typeof window !== 'undefined' && window.ethereum ? 'disconnected' : 'none'))
   const [address, setAddress] = useState<Address | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [mintPrice, setMintPrice] = useState<bigint | null>(mode === 'demo' ? 1_300_000_000_000_000n : null)
+  const [mintPrice, setMintPrice] = useState<bigint | null>(mode === 'demo' ? 1_000_000_000_000_000n : null)
   const [totalMinted, setTotalMinted] = useState(mode === 'demo' ? 412 : 0)
   const [pets, setPets] = useState<Pet[]>([])
   const [ledger, setLedger] = useState<Record<string, bigint>>({})

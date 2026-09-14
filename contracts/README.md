@@ -20,7 +20,7 @@ Yield units are a ledger, not a share, not a token, not an exposure — until a 
 | Robinhood Chain mainnet (4663) | `Collar` | [`0xCCc7C1EA864E99CBe43788c203Af9c1BDfaba7c0`](https://robinhoodchain.blockscout.com/address/0xCCc7C1EA864E99CBe43788c203Af9c1BDfaba7c0) |
 | Robinhood Chain mainnet (4663) | `Hoodochi` | [`0x23409CaD886380f066329eF237a37d55950AF9Ad`](https://robinhoodchain.blockscout.com/address/0x23409CaD886380f066329eF237a37d55950AF9Ad) |
 
-Deployed 2026-09-14 from `0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f` (owner + keeper). Mint price 0.00197 ETH (≈ $5 at deploy), `BASE_URI = https://api.hoodochi.io/token/` (placeholder, `setBaseURI` once the renderer exists), thresholds = provisional defaults. Receipts: `broadcast/Deploy.s.sol/4663/run-latest.json`.
+Deployed 2026-09-14 from `0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f` (owner + keeper). Mint price 0.001 ETH (set via `setMintPrice` right after deploy; was 0.00197), `BASE_URI = https://api.hoodochi.io/token/` (placeholder, `setBaseURI` once the renderer exists), thresholds = provisional defaults. Receipts: `broadcast/Deploy.s.sol/4663/run-latest.json`.
 
 ## Network
 
@@ -62,7 +62,7 @@ VITE_COLLAR_ADDRESS=0x...
 VITE_HOODOCHI_ADDRESS=0x...
 ```
 
-`MINT_PRICE_WEI` is $5 at deploy time; adjust later with `setMintPrice`. `PROVENANCE` is the `provenance` field of `collection/collection.json`, `0x`-prefixed.
+`MINT_PRICE_WEI` is the fixed mint price (0.001 ETH on mainnet); adjust later with `setMintPrice`. `PROVENANCE` is the `provenance` field of `collection/collection.json`, `0x`-prefixed.
 
 ## Friday keeper
 

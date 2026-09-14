@@ -629,7 +629,7 @@ export function Device() {
             {be.mintPrice ? fmtEth(be.mintPrice) : '…'}
           </T>
           <T x={14} y={70} dim>
-            ABOUT 5 DOLLARS
+            CHEAP ON PURPOSE
           </T>
           <T x={14} y={90}>
             RANDOM BODY, EYES,
