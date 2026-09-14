@@ -1,0 +1,35 @@
+{
+  "chainId": 4663,
+  "network": "Robinhood Chain mainnet",
+  "deployedAt": "2026-09-14",
+  "deployer": "0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f",
+  "keeper": "0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f",
+  "contracts": {
+    "Collar": "0xccc7c1ea864e99cbe43788c203af9c1bdfaba7c0",
+    "Hoodochi": "0x23409cad886380f066329ef237a37d55950af9ad"
+  },
+  "transactions": [
+    {
+      "type": "CREATE",
+      "contract": "Collar",
+      "function": null,
+      "hash": "0xe70e2140f04880ea56bb78d7a96c3daa15392c285adcd5477bcee480e7941f2d"
+    },
+    {
+      "type": "CREATE",
+      "contract": "Hoodochi",
+      "function": null,
+      "hash": "0x3e133f23ba50a27506cf380a8c270eb25bcade7bcf09453abed0826bfb6c7482"
+    },
+    {
+      "type": "CALL",
+      "contract": "Collar",
+      "function": "setMinter(address,bool)",
+      "hash": "0x1a57f7ee9c1a0206e25aa42192929855ec9b65ec253554458f4fa3aac0fc5133"
+    }
+  ],
+  "block": 63081378,
+  "mintPriceWei": "1970000000000000",
+  "provenance": "0xfdbf5e71774ce5ddafda7c804f3bb09452749de959136a1220f7659734b42e11",
+  "baseURI": "https://api.hoodochi.io/token/"
+}
