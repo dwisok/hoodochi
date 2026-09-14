@@ -240,6 +240,37 @@ function Cursor({ y, blink }: { y: number; blink: number }) {
   return <rect x={6} y={y - 6} width={4} height={6} fill={LCD.ink} />
 }
 
+/** A tappable button drawn on the LCD. Primary = filled. */
+function Btn({ x, y, w, h = 16, label, onClick, primary, disabled }: { x: number; y: number; w: number; h?: number; label: string; onClick: () => void; primary?: boolean; disabled?: boolean }) {
+  return (
+    <g className={`lcd-btn ${disabled ? 'off' : ''}`} onClick={disabled ? undefined : onClick} role="button" aria-label={label} tabIndex={-1}>
+      <rect x={x} y={y} width={w} height={h} fill={primary ? LCD.ink : LCD.bg} stroke={LCD.ink} strokeWidth={2} />
+      {primary && <rect x={x + 2} y={y + h} width={w} height={2} fill={LCD.ink} opacity={0.5} />}
+      <text x={x + w / 2} y={y + h / 2 + 4} className="lcd-text" fill={primary ? LCD.bg : LCD.ink} textAnchor="middle">
+        {label}
+      </text>
+    </g>
+  )
+}
+
+/** A tappable list row. Selected = inverted. */
+function Row({ y, label, selected, onClick, right }: { y: number; label: string; selected: boolean; onClick: () => void; right?: string }) {
+  return (
+    <g className="lcd-row" onClick={onClick} role="button" aria-label={label} tabIndex={-1}>
+      <rect className="row-bg" x={8} y={y} width={W - 16} height={12} fill={selected ? LCD.ink : LCD.bg} />
+      <text x={14} y={y + 9} className="lcd-text" fill={selected ? LCD.bg : LCD.ink}>
+        {selected ? '> ' : '  '}
+        {label}
+      </text>
+      {right && (
+        <text x={W - 12} y={y + 9} className="lcd-text" fill={selected ? LCD.bg : LCD.dark} textAnchor="end">
+          {right}
+        </text>
+      )}
+    </g>
+  )
+}
+
 export function Device() {
   const be = useBackend()
   const simRef = useRef<Sim>(newSim())
@@ -292,13 +323,16 @@ export function Device() {
 
   // ---- input ----------------------------------------------------------------
   const press = useCallback(
-    (k: Key) => {
+    (k: Key, at?: number) => {
       const sim = simRef.current
       if (be.busy) return
+      const c = at ?? cursor
+      if (at !== undefined) setCursor(at)
       switch (screen) {
         case 'title':
           if (k === 'a') {
-            if (be.mode === 'chain' && be.status !== 'ready') void be.connect().then(() => setScreen('menu'))
+            if (be.mode === 'chain' && be.status === 'none') window.open('https://metamask.io/download/', '_blank', 'noopener')
+            else if (be.mode === 'chain' && be.status !== 'ready') void be.connect().then(() => setScreen('menu'))
             else go('menu')
           }
           break
@@ -308,8 +342,8 @@ export function Device() {
           if (k === 'down') setCursor((c) => (c + 1) % n)
           if (k === 'b') go('title')
           if (k === 'a') {
-            if (cursor < be.pets.length) {
-              setPetId(be.pets[cursor].id)
+            if (c < be.pets.length) {
+              setPetId(be.pets[c].id)
               go('pet')
             } else go('mint')
           }
@@ -335,7 +369,7 @@ export function Device() {
           if (k === 'down') setCursor((c) => (c + 1) % n)
           if (k === 'b') go('menu')
           if (k === 'a' && pet) {
-            const act = PET_ACTIONS[cursor]
+            const act = PET_ACTIONS[c]
             if (act === 'COLLAR') {
               if (!pet.alive) say('DEAD.', ['NO NEW COLLAR.', 'MINT ANOTHER.'])
               else if (pet.staked) say('STAKED.', ['UNSTAKE FIRST', 'TO SWAP STOCK.'])
@@ -367,7 +401,7 @@ export function Device() {
           if (k === 'down' || k === 'right') setCursor((c) => (c + 1) % TICKERS.length)
           if (k === 'b') go('pet', 0)
           if (k === 'a' && pet) {
-            const t = TICKERS[cursor]
+            const t = TICKERS[c]
             void be
               .setCollar(pet.id, t)
               .then(() => {
@@ -536,31 +570,48 @@ export function Device() {
         <>
           {world}
           {header(sim.ticker ?? 'ONLY UP', sim.real ? (cur.label ?? '') : `DAY ${sim.k + 1}`)}
-          <rect x={16} y={H - 40} width={W - 32} height={30} fill={LCD.bg} stroke={LCD.ink} strokeWidth={2} />
-          <T x={W / 2 - 34} y={H - 27} big>
+          <rect x={12} y={H - 58} width={W - 24} height={50} fill={LCD.bg} stroke={LCD.ink} strokeWidth={2} />
+          <T x={W / 2 - 34} y={H - 43} big>
             HOODOCHI
           </T>
-          {Math.floor(blink / 12) % 2 === 0 && (
-            <T x={W / 2 - 32} y={H - 16}>
-              {be.mode === 'chain' && be.status !== 'ready' ? (be.status === 'none' ? 'NO WALLET FOUND' : 'A: CONNECT WALLET') : 'PRESS A TO START'}
+          <Btn
+            x={20}
+            y={H - 34}
+            w={W - 40}
+            h={18}
+            primary
+            label={
+              be.mode !== 'chain'
+                ? 'START'
+                : be.status === 'ready'
+                  ? 'START'
+                  : be.status === 'connecting'
+                    ? 'CONNECTING' + '.'.repeat(Math.floor(blink / 10) % 4)
+                    : be.status === 'none'
+                      ? 'GET A WALLET'
+                      : 'CONNECT WALLET'
+            }
+            onClick={() => press('a')}
+          />
+          {be.mode === 'chain' && be.status === 'none' && (
+            <T x={W / 2 - 46} y={H - 62} dim>
+              NO WALLET IN BROWSER
             </T>
           )}
+          {errLine}
         </>
       )
       break
     case 'menu': {
-      const rows = [...be.pets.map((p) => `#${p.id}  ${p.alive ? (p.ticker ?? 'NAKED') : 'DEAD'}${p.staked ? ' *' : ''}`), `MINT  ${be.totalMinted}/1000`]
+      const rows = [...be.pets.map((p) => `#${p.id}  ${p.alive ? (p.ticker ?? 'NAKED') : 'DEAD'}${p.staked ? ' *' : ''}`), `MINT ONE  ${be.totalMinted}/1000`]
       body = (
         <>
           {header(be.mode === 'chain' ? (be.address ? be.address.slice(0, 6) + '…' : CHAIN.name.toUpperCase()) : 'DEMO MODE', be.pets.length ? `${be.pets.length} OWNED` : '')}
-          {rows.slice(0, 7).map((r, i) => (
-            <T key={i} x={14} y={32 + i * 13}>
-              {r}
-            </T>
+          {rows.slice(0, 6).map((r, i) => (
+            <Row key={i} y={24 + i * 14} label={r} selected={cursor === i} onClick={() => press('a', i)} />
           ))}
-          <Cursor y={32 + cursor * 13} blink={blink} />
           <T x={6} y={H - 6} dim>
-            {be.pets.length === 0 ? 'NOTHING YET. MINT ONE.' : '* = STAKED'}
+            {be.pets.length === 0 ? 'NOTHING YET. TAP MINT.' : 'TAP ONE  ·  * = STAKED'}
           </T>
           {busyBox}
         </>
@@ -586,9 +637,8 @@ export function Device() {
           <T x={14} y={102}>
             ANTENNAE. NO COLLAR.
           </T>
-          <T x={14} y={124}>
-            A: MINT   B: BACK
-          </T>
+          <Btn x={10} y={112} w={88} label="MINT NOW" primary onClick={() => press('a')} />
+          <Btn x={104} y={112} w={46} label="BACK" onClick={() => press('b')} />
           {busyBox}
           {errLine}
         </>
@@ -615,13 +665,11 @@ export function Device() {
           </T>
           <rect x="6" y="59" width={W - 12} height="1" fill={LCD.dark} />
           {actions.map((a, i) => (
-            <T key={a} x={14} y={72 + i * 12}>
-              {a}
-            </T>
+            <Row key={a} y={63 + i * 13} label={a} selected={cursor === i} onClick={() => press('a', i)} right={a === 'COLLAR' ? 'MON' : a === 'PLAY' ? 'GAME' : a === 'CLAIM' ? 'FRI' : ''} />
           ))}
-          <Cursor y={72 + cursor * 12} blink={blink} />
+          <Btn x={W - 44} y={H - 16} w={38} h={12} label="BACK" onClick={() => press('b')} />
           <T x={6} y={H - 6} dim>
-            {be.mode === 'demo' ? 'DEMO: FRIDAY SETTLES NOW' : 'FRIDAY SETTLES ON-CHAIN'}
+            {be.mode === 'demo' ? 'DEMO: FRIDAY NOW' : 'FRIDAY ON-CHAIN'}
           </T>
           {busyBox}
           {errLine}
@@ -634,17 +682,18 @@ export function Device() {
       body = (
         <>
           {header('PICK A STOCK', `${cursor + 1}/${TICKERS.length}`)}
-          <rect x={30} y={44} width={100} height={36} fill={LCD.ink} />
-          <rect x={33} y={47} width={94} height={30} fill={LCD.bg} />
-          <T x={W / 2 - t.length * 5} y={68} big>
+          <rect x={40} y={40} width={80} height={36} fill={LCD.ink} />
+          <rect x={43} y={43} width={74} height={30} fill={LCD.bg} />
+          <T x={W / 2 - t.length * 5} y={64} big>
             {t}
           </T>
-          <T x={14} y={100}>
-            {'<'} {TICKERS[(cursor + TICKERS.length - 1) % TICKERS.length]}   {TICKERS[(cursor + 1) % TICKERS.length]} {'>'}
+          <Btn x={8} y={48} w={26} h={20} label="<" onClick={() => press('left')} />
+          <Btn x={W - 34} y={48} w={26} h={20} label=">" onClick={() => press('right')} />
+          <T x={W / 2 - 48} y={92} dim>
+            {TICKERS[(cursor + TICKERS.length - 1) % TICKERS.length]}   ·   {TICKERS[(cursor + 1) % TICKERS.length]}
           </T>
-          <T x={14} y={124}>
-            A: COLLAR IT   B: BACK
-          </T>
+          <Btn x={10} y={112} w={88} label={`COLLAR ${t}`} primary onClick={() => press('a')} />
+          <Btn x={104} y={112} w={46} label="BACK" onClick={() => press('b')} />
           {busyBox}
           {errLine}
         </>
@@ -656,9 +705,11 @@ export function Device() {
         <>
           {world}
           {header(sim.ticker ?? 'ONLY UP', `COINS ${sim.score}`)}
+          <rect className="lcd-tap" x={0} y={17} width={W} height={H - 17} fill="transparent" onClick={() => press('a')} />
           <T x={6} y={H - 6} dim>
-            A: JUMP   B: BACK
+            TAP TO JUMP
           </T>
+          <Btn x={W - 44} y={H - 16} w={38} h={12} label="BACK" onClick={() => press('b')} />
         </>
       )
       break
@@ -688,9 +739,8 @@ export function Device() {
               EMPTY
             </T>
           )}
-          <T x={14} y={132}>
-            A: CLAIM   B: BACK
-          </T>
+          <Btn x={10} y={122} w={88} h={16} label="CLAIM" primary onClick={() => press('a')} />
+          <Btn x={104} y={122} w={46} h={16} label="BACK" onClick={() => press('b')} />
           {busyBox}
           {errLine}
         </>
@@ -731,9 +781,7 @@ export function Device() {
               </T>
             </>
           )}
-          <T x={14} y={132}>
-            A: OK
-          </T>
+          <Btn x={10} y={122} w={W - 20} h={16} label="OK" primary onClick={() => press('a')} />
         </>
       )
       break
@@ -750,9 +798,7 @@ export function Device() {
               {l}
             </T>
           ))}
-          <T x={14} y={132}>
-            A: OK
-          </T>
+          <Btn x={10} y={122} w={W - 20} h={16} label="OK" primary onClick={() => press('a')} />
           {errLine}
         </>
       )
@@ -793,7 +839,7 @@ export function Device() {
           </button>
         </div>
       </div>
-      <p className="device-hint">arrows · enter = A · backspace = B</p>
+      <p className="device-hint">tap the screen · or arrows, enter = A, backspace = B</p>
     </div>
   )
 }

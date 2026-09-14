@@ -2973,3 +2973,33 @@ button.btn-round:active {
     opacity: 0.45;
   }
 }
+
+/* ---- LCD is a touch screen: buttons and rows drawn in the SVG ---- */
+.lcd-btn,
+.lcd-row,
+.lcd-tap {
+  cursor: pointer;
+}
+
+.lcd-btn:hover rect:first-child {
+  filter: brightness(0.92);
+}
+
+.lcd-btn:active {
+  transform: translateY(1px);
+}
+
+.lcd-btn.off {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.lcd-row:hover .row-bg {
+  fill: rgba(15, 56, 15, 0.18);
+}
+
+.lcd-btn text,
+.lcd-row text {
+  pointer-events: none;
+  user-select: none;
+}
