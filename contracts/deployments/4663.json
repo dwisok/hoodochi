@@ -31,7 +31,7 @@
   "block": 63081378,
   "mintPriceWei": "1000000000000000",
   "provenance": "0xfdbf5e71774ce5ddafda7c804f3bb09452749de959136a1220f7659734b42e11",
-  "baseURI": "https://api.hoodochi.io/token/",
+  "baseURI": "https://dwisok.github.io/hoodochi-tokens/token/",
   "mintPriceHistory": [
     {
       "wei": "1970000000000000",
@@ -41,6 +41,16 @@
       "wei": "1000000000000000",
       "tx": "0xc0baaabe680902ca7fb27c32cdffc9d78f9ec6b1a556a5e5b0c8d2792e8d5b6f",
       "at": "2026-09-14 setMintPrice"
+    }
+  ],
+  "baseURIHistory": [
+    {
+      "uri": "https://api.hoodochi.io/token/",
+      "at": "deploy 2026-09-14"
+    },
+    {
+      "uri": "https://dwisok.github.io/hoodochi-tokens/token/",
+      "at": "2026-09-15 setBaseURI"
     }
   ]
 }
