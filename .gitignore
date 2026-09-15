@@ -8,3 +8,5 @@ _to_delete/
 Claude outputs/
 tsconfig.tsbuildinfo
 contracts/foundry-pp/
+
+# token metadata + images live in tokens/ until the host copes with 2000 static files (see README)
