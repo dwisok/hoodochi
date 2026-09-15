@@ -8,6 +8,10 @@ import { Device } from './components/Device'
 import { ItemRail } from './components/ItemRail'
 import { Reveal } from './components/Reveal'
 import { TOKENS } from './sprites-v2'
+import { Link, route, usePath } from './router'
+import { PetPage } from './pages/PetPage'
+import { PetsPage } from './pages/PetsPage'
+import { GraveyardPage } from './pages/GraveyardPage'
 
 const X_HANDLE = 'hoodochidotio'
 const X_URL = `https://x.com/${X_HANDLE}`
@@ -79,29 +83,62 @@ function Seam({ from, to }: { from: string; to: string }) {
 const RULE_TOKENS = [TOKENS[317], TOKENS[11], TOKENS[902]]
 
 export default function App() {
+  const path = usePath()
+  const r = route(path)
+  useEffect(() => {
+    if (r.name === 'landing') document.title = 'Hoodochi — a pet that lives on your ticker'
+  }, [r.name])
   return (
     <>
       <ScrollBar />
       <header className="nav">
-        <a href="#top" className="wordmark">
+        <Link href="/" className="wordmark">
           <span className="wordmark-art">
             <Hoodochi px={1.2} body="snow" eyes="black" antenna="ball" title="" />
           </span>
           <span>HOODOCHI</span>
-        </a>
-        <a className="nav-x" href={X_URL} target="_blank" rel="noreferrer">
-          @{X_HANDLE} ↗
-        </a>
+        </Link>
+        <nav className="nav-links">
+          <a href="/#play" className={r.name === 'landing' ? 'on' : ''}>
+            Play
+          </a>
+          <Link href="/pets" className={r.name === 'pets' || r.name === 'pet' ? 'on' : ''}>
+            Pets
+          </Link>
+          <Link href="/graveyard" className={r.name === 'graveyard' ? 'on' : ''}>
+            Graveyard
+          </Link>
+          <a className="nav-x" href={X_URL} target="_blank" rel="noreferrer">
+            @{X_HANDLE} ↗
+          </a>
+        </nav>
       </header>
 
       <main id="top">
+        {r.name === 'pet' && <PetPage id={r.id} />}
+        {r.name === 'pets' && <PetsPage />}
+        {r.name === 'graveyard' && <GraveyardPage />}
+        {r.name === 'landing' && <Landing />}
+      </main>
+
+      <footer className="foot">
+        <span>Hoodochi — work in progress.</span>
+        <span>Not investment advice. Not a financial product. Tickers are letters, not endorsements.</span>
+      </footer>
+    </>
+  )
+}
+
+function Landing() {
+  return (
+    <>
         {/* ---------------- hero: the loop, as the background ---------------- */}
         <HeroScene xUrl={X_URL} handle={X_HANDLE} />
 
         <Marquee />
 
         {/* ---------------- rules + the Game Boy ---------------- */}
-        <section className="rules rules-split">
+        <section className="rules rules-split" id="play">
           <div className="rules-copy">
             <Reveal>
               <p className="eyebrow">How it works</p>
@@ -169,15 +206,12 @@ export default function App() {
             <h2 className="section-title">
               <span className="hl hl-sky">Every one of them starts naked.</span>
             </h2>
+            <p className="parade-links">
+              <Link href="/pets">See the ones minted so far →</Link>
+            </p>
           </Reveal>
           <Parade />
         </section>
-      </main>
-
-      <footer className="foot">
-        <span>Hoodochi — work in progress.</span>
-        <span>Not investment advice. Not a financial product. Tickers are letters, not endorsements.</span>
-      </footer>
     </>
   )
 }

@@ -20,7 +20,7 @@ Yield units are a ledger, not a share, not a token, not an exposure — until a 
 | Robinhood Chain mainnet (4663) | `Collar` | [`0xCCc7C1EA864E99CBe43788c203Af9c1BDfaba7c0`](https://robinhoodchain.blockscout.com/address/0xCCc7C1EA864E99CBe43788c203Af9c1BDfaba7c0) |
 | Robinhood Chain mainnet (4663) | `Hoodochi` | [`0x23409CaD886380f066329eF237a37d55950AF9Ad`](https://robinhoodchain.blockscout.com/address/0x23409CaD886380f066329eF237a37d55950AF9Ad) |
 
-Deployed 2026-09-14 from `0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f` (owner + keeper). Mint price 0.001 ETH (set via `setMintPrice` right after deploy; was 0.00197), `BASE_URI = https://api.hoodochi.io/token/` (placeholder, `setBaseURI` once the renderer exists), thresholds = provisional defaults. Receipts: `broadcast/Deploy.s.sol/4663/run-latest.json`.
+Deployed 2026-09-14 from `0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f` (owner + keeper). Mint price 0.001 ETH (set via `setMintPrice` right after deploy; was 0.00197), `BASE_URI = https://www.hoodochi.io/token/` (static JSON + birth picture per id, see the site README; set with `setBaseURI` on 2026-09-15), thresholds = provisional defaults. Receipts: `broadcast/Deploy.s.sol/4663/run-latest.json`.
 
 ## Network
 
@@ -66,8 +66,8 @@ VITE_HOODOCHI_ADDRESS=0x...
 
 ## Friday keeper
 
-`keeper/settle.mjs` (site repo) reads the week's closes from Polygon, computes each staked creature's z-score (weekly return / its own weekly σ) and yield units, and calls `settleWeek(ids, z10, units)`. Run it every Friday after the close with the keeper key. Not yet written — after the contracts are on testnet.
+`keeper/settle.mjs` (site repo) reads the week's closes (Polygon, else Yahoo, else Stooq), computes each staked creature's z-score (weekly return / its own weekly σ) and yield units, and calls `settleWeek(ids, z10, units)`. Idempotent through the `Settled` events. Runs every Saturday 01:30 UTC from GitHub Actions (`.github/workflows/friday.yml`).
 
 ## Renderer
 
-`tokenURI(id)` → `BASE_URI + id`. The server reads `petOf(id)` on-chain, calls `generator/items2.build(...)` with the birth traits from `collection.json` and the slots/collar from the chain, returns OpenSea-style JSON and serves the PNG at `/token/{id}.png`. Cache invalidated on `Collared`, `Settled`, `Died` events.
+`tokenURI(id)` → `BASE_URI + id` → static JSON in the site (`public/token/<id>`, birth traits, `image` = birth picture, `external_url` = `/pet/<id>` where the live look is rendered client-side). A dynamic renderer (items on the picture) can replace it later with a single `setBaseURI`.

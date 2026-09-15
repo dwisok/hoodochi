@@ -1,4 +1,5 @@
 import { Reveal } from './Reveal'
+import { Link } from '../router'
 import { CHAIN, deployed, short } from '../chain'
 
 /** Contract addresses, once deployed. Renders nothing before that. */
@@ -25,7 +26,10 @@ export function OnChain() {
           ))}
         </ul>
         <Reveal delay={300}>
-          <p className="chain-note">Sources on Blockscout. Yield is a number in a ledger until the legal review is done — not a token, not a share, not a promise.</p>
+          <p className="chain-note">
+            Sources on Blockscout. Yield is a number in a ledger until the legal review is done — not a token, not a share, not a promise.{' '}
+            <Link href="/pets">Every Hoodochi minted, live →</Link>
+          </p>
         </Reveal>
       </div>
     </section>

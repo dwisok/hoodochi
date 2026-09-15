@@ -1,0 +1,8 @@
+# Token metadata files have no extension (tokenURI = baseURI + id): serve them as JSON, readable cross-origin.
+<FilesMatch "^[0-9]+$">
+  ForceType application/json
+</FilesMatch>
+<IfModule mod_headers.c>
+  Header set Access-Control-Allow-Origin "*"
+  Header set Cache-Control "public, max-age=3600"
+</IfModule>

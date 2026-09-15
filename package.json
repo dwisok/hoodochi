@@ -8,7 +8,9 @@
     "start": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "keeper": "node keeper/settle.mjs",
+    "keeper:send": "node keeper/settle.mjs --send"
   },
   "dependencies": {
     "react": "^18.3.1",

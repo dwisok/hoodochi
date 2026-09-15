@@ -1,0 +1,28 @@
+{
+  "name": "Hoodochi #515",
+  "description": "An on-chain pet that lives on your ticker. Monday you put a stock on its collar, Friday the market decides: an item it keeps forever, nothing, or death. What it wears right now is on its page.",
+  "image": "https://www.hoodochi.io/token/img/515.png",
+  "external_url": "https://www.hoodochi.io/pet/515",
+  "attributes": [
+    {
+      "trait_type": "Body",
+      "value": "sage"
+    },
+    {
+      "trait_type": "Eyes",
+      "value": "sleepy"
+    },
+    {
+      "trait_type": "Antenna",
+      "value": "dark"
+    },
+    {
+      "trait_type": "Background",
+      "value": "grey"
+    },
+    {
+      "trait_type": "Background Tier",
+      "value": "common"
+    }
+  ]
+}

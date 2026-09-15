@@ -5,26 +5,16 @@
 //    settles a week instantly with a random z-score, so you can see the loop.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPublicClient, createWalletClient, custom, http, formatEther, hexToString, stringToHex } from 'viem'
-import type { Address, Hex, PublicClient, TransactionReceipt, WalletClient } from 'viem'
+import { createWalletClient, custom, formatEther, stringToHex } from 'viem'
+import type { Address, TransactionReceipt, WalletClient } from 'viem'
 import { chain, ADDRESSES, onChain } from './chain'
 import { HOODOCHI_ABI } from './abi'
-import type { Equip } from './components/Hoodochi'
+import { toPet, hoodContract, BATCH, publicClient, SLOT_KEYS } from './pets'
+import type { Pet } from './pets'
+
+export type { Pet } from './pets'
 
 export const UNIT = 1_000_000 // yield units: 1e6 = 1.000000 of the ticker
-
-export interface Pet {
-  id: number
-  ticker: string | null
-  staked: boolean
-  alive: boolean
-  weeksPlayed: number
-  equip: Equip
-  level: number
-  lastZ10: number
-  pending: bigint // units
-  deathTicker: string | null
-}
 
 export type WalletStatus = 'none' | 'disconnected' | 'connecting' | 'wrong-chain' | 'ready'
 
@@ -50,12 +40,8 @@ export interface Backend {
   demoFriday: (id: number, z10?: number) => void
 }
 
-const SLOT_KEYS = ['tete', 'yeux', 'cou', 'poignet', 'main'] as const
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-// Multicall calldata chunk, in bytes. Large enough to read the whole collection in a few round trips.
-const BATCH = 16_384
 
-const b8ToString = (h: Hex) => hexToString(h, { size: 8 }).replace(/\0+$/g, '')
 const stringToB8 = (s: string) => stringToHex(s.toUpperCase(), { size: 8 })
 
 declare global {
@@ -77,24 +63,11 @@ export function useBackend(): Backend {
   const [syncing, setSyncing] = useState(false)
   const walletRef = useRef<WalletClient | null>(null)
 
-  const pub: PublicClient | null = useMemo(() => (mode === 'chain' ? createPublicClient({ chain, transport: http(undefined, { retryCount: 2 }) }) : null), [mode])
+  const pub = useMemo(() => (mode === 'chain' ? publicClient() : null), [mode])
 
   // ---- reads ------------------------------------------------------------
   // No event logs: the public RPC times out on wide eth_getLogs ranges. Ownership is
   // read straight from the contract, ownerOf(1..totalMinted) in a few multicalls.
-  const hoodContract = { address: ADDRESSES.hoodochi as Address, abi: HOODOCHI_ABI } as const
-
-  const toPet = (id: number, r: readonly [bigint, Hex, boolean, boolean, number, readonly number[], number, number, bigint, Hex]): Pet => {
-    const [, ticker, staked, alive, weeksPlayed, slots, level, lastZ10, pending, deathTicker] = r
-    const equip: Equip = {}
-    SLOT_KEYS.forEach((k, i) => {
-      if ((slots[i] ?? 0) > 0) equip[k] = slots[i]
-    })
-    const tk = b8ToString(ticker)
-    const dk = b8ToString(deathTicker)
-    return { id, ticker: tk || null, staked, alive, weeksPlayed, equip, level, lastZ10, pending, deathTicker: dk || null }
-  }
-
   const refresh = useCallback(async (): Promise<Pet[]> => {
     if (mode !== 'chain' || !pub) return []
     setSyncing(true)
@@ -124,7 +97,7 @@ export function useBackend(): Backend {
       const raw = owned.length
         ? await pub.multicall({ contracts: owned.map((id) => ({ ...hoodContract, functionName: 'petOf', args: [BigInt(id)] }) as const), allowFailure: false, batchSize: BATCH })
         : []
-      const list = owned.map((id, i) => toPet(id, raw[i] as never))
+      const list = owned.map((id, i) => toPet(id, raw[i] as Parameters<typeof toPet>[1]))
       setPets(list)
       const tickers = [...new Set(list.map((p) => p.ticker ?? p.deathTicker).filter(Boolean) as string[])]
       if (tickers.length) {
