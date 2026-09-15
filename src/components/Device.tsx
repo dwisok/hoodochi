@@ -611,8 +611,9 @@ export function Device() {
             <Row key={i} y={24 + i * 14} label={r} selected={cursor === i} onClick={() => press('a', i)} />
           ))}
           <T x={6} y={H - 6} dim>
-            {be.pets.length === 0 ? 'NOTHING YET. TAP MINT.' : 'TAP ONE  ·  * = STAKED'}
+            {be.syncing ? 'READING THE CHAIN' + '.'.repeat(Math.floor(blink / 10) % 4) : be.error ? 'RETRY: ' + be.error.slice(0, 20).toUpperCase() : be.pets.length === 0 ? 'NOTHING YET. TAP MINT.' : 'TAP ONE  ·  * = STAKED'}
           </T>
+          {!be.syncing && be.error && <Btn x={W - 50} y={H - 30} w={44} h={12} label="RETRY" onClick={() => void be.refresh()} />}
           {busyBox}
         </>
       )
@@ -646,7 +647,23 @@ export function Device() {
       break
     case 'pet': {
       if (!pet) {
-        body = header('…', '')
+        // Just minted or the RPC lagged: the pet is not in the list yet.
+        body = (
+          <>
+            {header(petId ? `#${petId}` : '…', be.syncing ? 'SYNCING' : '')}
+            <T x={14} y={56} big>
+              {be.syncing ? 'READING' + '.'.repeat(Math.floor(blink / 10) % 4) : 'NOT FOUND'}
+            </T>
+            <T x={14} y={76}>
+              {be.syncing ? 'THE CHAIN.' : 'NOT IN THIS WALLET,'}
+            </T>
+            <T x={14} y={88}>
+              {be.syncing ? 'ONE MOMENT.' : 'OR THE RPC LAGS.'}
+            </T>
+            {!be.syncing && <Btn x={10} y={112} w={88} label="RETRY" primary onClick={() => void be.refresh()} />}
+            <Btn x={104} y={112} w={46} label="BACK" onClick={() => press('b')} />
+          </>
+        )
         break
       }
       const worn = (['tete', 'yeux', 'cou', 'poignet', 'main'] as const).filter((s) => (pet.equip[s] ?? 0) > 0).length

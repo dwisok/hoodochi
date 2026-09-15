@@ -5,8 +5,8 @@
 //    settles a week instantly with a random z-score, so you can see the loop.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPublicClient, createWalletClient, custom, http, formatEther, hexToString, stringToHex, parseAbiItem } from 'viem'
-import type { Address, Hex, PublicClient, WalletClient } from 'viem'
+import { createPublicClient, createWalletClient, custom, http, formatEther, hexToString, stringToHex } from 'viem'
+import type { Address, Hex, PublicClient, TransactionReceipt, WalletClient } from 'viem'
 import { chain, ADDRESSES, onChain } from './chain'
 import { HOODOCHI_ABI } from './abi'
 import type { Equip } from './components/Hoodochi'
@@ -38,8 +38,9 @@ export interface Backend {
   pets: Pet[]
   ledger: Record<string, bigint>
   busy: string | null // label of the transaction in flight
+  syncing: boolean // reading the chain
   connect: () => Promise<void>
-  refresh: () => Promise<void>
+  refresh: () => Promise<Pet[]>
   mint: () => Promise<number | null>
   setCollar: (id: number, ticker: string) => Promise<void>
   stake: (id: number) => Promise<void>
@@ -50,7 +51,9 @@ export interface Backend {
 }
 
 const SLOT_KEYS = ['tete', 'yeux', 'cou', 'poignet', 'main'] as const
-const TRANSFER = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)')
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+// Multicall calldata chunk, in bytes. Large enough to read the whole collection in a few round trips.
+const BATCH = 16_384
 
 const b8ToString = (h: Hex) => hexToString(h, { size: 8 }).replace(/\0+$/g, '')
 const stringToB8 = (s: string) => stringToHex(s.toUpperCase(), { size: 8 })
@@ -71,55 +74,90 @@ export function useBackend(): Backend {
   const [pets, setPets] = useState<Pet[]>([])
   const [ledger, setLedger] = useState<Record<string, bigint>>({})
   const [busy, setBusy] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
   const walletRef = useRef<WalletClient | null>(null)
 
-  const pub: PublicClient | null = useMemo(() => (mode === 'chain' ? createPublicClient({ chain, transport: http() }) : null), [mode])
+  const pub: PublicClient | null = useMemo(() => (mode === 'chain' ? createPublicClient({ chain, transport: http(undefined, { retryCount: 2 }) }) : null), [mode])
 
   // ---- reads ------------------------------------------------------------
-  const readPet = useCallback(
-    async (id: number): Promise<Pet> => {
-      const r = await pub!.readContract({ address: ADDRESSES.hoodochi as Address, abi: HOODOCHI_ABI, functionName: 'petOf', args: [BigInt(id)] })
-      const [, ticker, staked, alive, weeksPlayed, slots, level, lastZ10, pending, deathTicker] = r
-      const equip: Equip = {}
-      ;(slots as readonly number[]).forEach((t: number, i: number) => {
-        if (t > 0) equip[SLOT_KEYS[i]] = t
-      })
-      const tk = b8ToString(ticker)
-      const dk = b8ToString(deathTicker)
-      return { id, ticker: tk || null, staked, alive, weeksPlayed, equip, level, lastZ10, pending, deathTicker: dk || null }
-    },
-    [pub],
-  )
+  // No event logs: the public RPC times out on wide eth_getLogs ranges. Ownership is
+  // read straight from the contract, ownerOf(1..totalMinted) in a few multicalls.
+  const hoodContract = { address: ADDRESSES.hoodochi as Address, abi: HOODOCHI_ABI } as const
 
-  const refresh = useCallback(async () => {
-    if (mode !== 'chain' || !pub) return
-    const hood = ADDRESSES.hoodochi as Address
+  const toPet = (id: number, r: readonly [bigint, Hex, boolean, boolean, number, readonly number[], number, number, bigint, Hex]): Pet => {
+    const [, ticker, staked, alive, weeksPlayed, slots, level, lastZ10, pending, deathTicker] = r
+    const equip: Equip = {}
+    SLOT_KEYS.forEach((k, i) => {
+      if ((slots[i] ?? 0) > 0) equip[k] = slots[i]
+    })
+    const tk = b8ToString(ticker)
+    const dk = b8ToString(deathTicker)
+    return { id, ticker: tk || null, staked, alive, weeksPlayed, equip, level, lastZ10, pending, deathTicker: dk || null }
+  }
+
+  const refresh = useCallback(async (): Promise<Pet[]> => {
+    if (mode !== 'chain' || !pub) return []
+    setSyncing(true)
     try {
-      const [price, minted] = await Promise.all([
-        pub.readContract({ address: hood, abi: HOODOCHI_ABI, functionName: 'mintPrice' }),
-        pub.readContract({ address: hood, abi: HOODOCHI_ABI, functionName: 'totalMinted' }),
-      ])
+      const [price, minted] = await pub.multicall({
+        contracts: [
+          { ...hoodContract, functionName: 'mintPrice' },
+          { ...hoodContract, functionName: 'totalMinted' },
+        ],
+        allowFailure: false,
+      })
       setMintPrice(price)
-      setTotalMinted(Number(minted))
-      if (!address) return
-      // every token that ever came to this wallet, then keep the ones still here
-      const logs = await pub.getLogs({ address: hood, event: TRANSFER, args: { to: address }, fromBlock: 0n, toBlock: 'latest' })
-      const ids = [...new Set((logs as { args: { tokenId?: bigint } }[]).map((l) => Number(l.args.tokenId ?? 0n)))]
-      const owned: number[] = []
-      for (const id of ids) {
-        const o = (await pub.readContract({ address: hood, abi: HOODOCHI_ABI, functionName: 'ownerOf', args: [BigInt(id)] }).catch(() => null)) as string | null
-        if (o && o.toLowerCase() === address.toLowerCase()) owned.push(id)
+      const n = Number(minted)
+      setTotalMinted(n)
+      if (!address || n === 0) {
+        setPets([])
+        return []
       }
-      const list = await Promise.all(owned.map(readPet))
+      const ids = Array.from({ length: n }, (_, i) => i + 1)
+      const owners = await pub.multicall({
+        contracts: ids.map((id) => ({ ...hoodContract, functionName: 'ownerOf', args: [BigInt(id)] }) as const),
+        allowFailure: true, // burned / never minted ids revert
+        batchSize: BATCH,
+      })
+      const me = address.toLowerCase()
+      const owned = ids.filter((id, i) => owners[i].status === 'success' && String(owners[i].result).toLowerCase() === me)
+      const raw = owned.length
+        ? await pub.multicall({ contracts: owned.map((id) => ({ ...hoodContract, functionName: 'petOf', args: [BigInt(id)] }) as const), allowFailure: false, batchSize: BATCH })
+        : []
+      const list = owned.map((id, i) => toPet(id, raw[i] as never))
       setPets(list)
       const tickers = [...new Set(list.map((p) => p.ticker ?? p.deathTicker).filter(Boolean) as string[])]
-      const led: Record<string, bigint> = {}
-      for (const t of tickers) led[t] = await pub.readContract({ address: hood, abi: HOODOCHI_ABI, functionName: 'ledger', args: [address, stringToB8(t)] })
-      setLedger(led)
+      if (tickers.length) {
+        const bal = await pub.multicall({ contracts: tickers.map((t) => ({ ...hoodContract, functionName: 'ledger', args: [address, stringToB8(t)] }) as const), allowFailure: false })
+        const led: Record<string, bigint> = {}
+        tickers.forEach((t, i) => (led[t] = bal[i]))
+        setLedger(led)
+      }
+      setError(null)
+      return list
     } catch (e) {
-      setError((e as Error).message.split('\n')[0])
+      const msg = (e as Error).message.split('\n')[0]
+      setError(msg.length > 60 ? msg.slice(0, 57) + '…' : msg)
+      return pets
+    } finally {
+      setSyncing(false)
     }
-  }, [mode, pub, address, readPet])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, pub, address])
+
+  /** Re-read until the chain shows what we expect (the RPC is load-balanced and can lag a few blocks). */
+  const refreshUntil = useCallback(
+    async (expect: (ps: Pet[]) => boolean, tries = 8, gap = 1500): Promise<Pet[]> => {
+      let list: Pet[] = []
+      for (let i = 0; i < tries; i++) {
+        list = await refresh()
+        if (expect(list)) break
+        await wait(gap)
+      }
+      return list
+    },
+    [refresh],
+  )
 
   useEffect(() => {
     void refresh()
@@ -170,7 +208,7 @@ export function useBackend(): Backend {
 
   // ---- writes -------------------------------------------------------------
   const write = useCallback(
-    async (label: string, fn: 'mint' | 'setCollar' | 'stake' | 'unstake' | 'claim', args: readonly unknown[], value?: bigint) => {
+    async (label: string, fn: 'mint' | 'setCollar' | 'stake' | 'unstake' | 'claim', args: readonly unknown[], value?: bigint, expect?: (ps: Pet[]) => boolean): Promise<TransactionReceipt> => {
       const wc = walletRef.current
       if (!wc || !address || !pub) throw new Error('no wallet')
       setBusy(label)
@@ -185,8 +223,11 @@ export function useBackend(): Backend {
           account: address,
           chain,
         })
-        await pub.waitForTransactionReceipt({ hash })
-        await refresh()
+        const receipt = await pub.waitForTransactionReceipt({ hash })
+        if (receipt.status !== 'success') throw new Error('TX REVERTED')
+        setBusy('SYNCING')
+        await refreshUntil(expect ?? (() => true))
+        return receipt
       } catch (e) {
         const msg = (e as Error).message.split('\n')[0]
         setError(msg.length > 60 ? msg.slice(0, 57) + '…' : msg)
@@ -195,7 +236,7 @@ export function useBackend(): Backend {
         setBusy(null)
       }
     },
-    [address, pub, refresh],
+    [address, pub, refreshUntil],
   )
 
   // ---- demo backend -------------------------------------------------------
@@ -213,10 +254,16 @@ export function useBackend(): Backend {
       return id
     }
     if (!mintPrice) return null
-    const before = totalMinted
-    await write('MINTING', 'mint', [1n], mintPrice)
-    return before + 1
-  }, [demo, mintPrice, totalMinted, write])
+    // The id comes from the receipt's Transfer log, not from a guess on totalMinted.
+    let id = 0
+    await write('MINTING', 'mint', [1n], mintPrice, () => id === 0 || pets.some((p) => p.id === id)).then((rc) => {
+      const log = rc.logs.find((l) => l.address.toLowerCase() === (ADDRESSES.hoodochi as string).toLowerCase() && l.topics[0] === TRANSFER_TOPIC)
+      if (log?.topics[3]) id = Number(BigInt(log.topics[3]))
+    })
+    if (id) await refreshUntil((ps) => ps.some((p) => p.id === id))
+    return id || null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo, mintPrice, write, refreshUntil])
 
   const setCollar = useCallback(
     async (id: number, ticker: string) => {
@@ -227,7 +274,7 @@ export function useBackend(): Backend {
         setBusy(null)
         return
       }
-      await write('COLLARING', 'setCollar', [BigInt(id), stringToB8(ticker)])
+      await write('COLLARING', 'setCollar', [BigInt(id), stringToB8(ticker)], undefined, (ps) => ps.find((p) => p.id === id)?.ticker === ticker.toUpperCase())
     },
     [demo, write],
   )
@@ -241,7 +288,7 @@ export function useBackend(): Backend {
         setBusy(null)
         return
       }
-      await write('STAKING', 'stake', [BigInt(id)])
+      await write('STAKING', 'stake', [BigInt(id)], undefined, (ps) => ps.find((p) => p.id === id)?.staked === true)
     },
     [demo, write],
   )
@@ -252,7 +299,7 @@ export function useBackend(): Backend {
         setPets((ps) => ps.map((p) => (p.id === id ? { ...p, staked: false } : p)))
         return
       }
-      await write('UNSTAKING', 'unstake', [BigInt(id)])
+      await write('UNSTAKING', 'unstake', [BigInt(id)], undefined, (ps) => ps.find((p) => p.id === id)?.staked === false)
     },
     [demo, write],
   )
@@ -273,7 +320,7 @@ export function useBackend(): Backend {
         setBusy(null)
         return
       }
-      await write('CLAIMING', 'claim', [BigInt(id)])
+      await write('CLAIMING', 'claim', [BigInt(id)], undefined, (ps) => ps.find((p) => p.id === id)?.pending === 0n)
     },
     [demo, write],
   )
@@ -302,7 +349,7 @@ export function useBackend(): Backend {
     )
   }, [])
 
-  return { mode, status, address, error, mintPrice, totalMinted, pets, ledger, busy, connect, refresh, mint, setCollar, stake, unstake, claim, demoFriday }
+  return { mode, status, address, error, mintPrice, totalMinted, pets, ledger, busy, syncing, connect, refresh, mint, setCollar, stake, unstake, claim, demoFriday }
 }
 
 export const fmtUnits = (u: bigint) => (Number(u) / UNIT).toFixed(3)
