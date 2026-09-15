@@ -1,0 +1,37 @@
+name: Friday settlement
+
+# Runs after the US close every Friday (Saturday 01:30 UTC so the daily bar is
+# published), settling every staked Hoodochi on-chain. Idempotent: a token
+# already settled this week is skipped. Manual runs from the Actions tab.
+on:
+  schedule:
+    - cron: '30 1 * * 6'
+  workflow_dispatch:
+    inputs:
+      send:
+        description: 'Broadcast the transaction (false = dry run)'
+        default: 'true'
+      date:
+        description: 'Settle the week containing this date (YYYY-MM-DD), empty = this week'
+        default: ''
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Settle the week
+        env:
+          KEEPER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          POLYGON_KEY: ${{ secrets.POLYGON_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event.inputs.send }}" = "true" ]; then ARGS="$ARGS --send"; fi
+          if [ -n "${{ github.event.inputs.date }}" ]; then ARGS="$ARGS --date ${{ github.event.inputs.date }}"; fi
+          node keeper/settle.mjs $ARGS
