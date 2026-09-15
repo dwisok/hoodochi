@@ -115,11 +115,14 @@ export function HeroScene({ xUrl, handle }: { xUrl: string; handle: string }) {
             </h1>
             <p className="lede fade-up d3">Put a stock on its collar and stake it. While it lives, it earns that stock — NVDA collar, NVDA in your pocket. Friday decides what it wears, or whether it lives.</p>
             <div className="cta-row fade-up d4">
-              <a className="btn btn-gold" href={xUrl} target="_blank" rel="noreferrer">
-                Follow the launch on X
+              <a className="btn btn-gold" href="#play">
+                Mint live — play
               </a>
               <span className="cta-side" style={{ color: 'inherit', opacity: 0.6 }}>
-                @{handle} · 1,000 at the mint · soon
+                mint live · 1,000 total ·{' '}
+                <a href={xUrl} target="_blank" rel="noreferrer">
+                  @{handle} ↗
+                </a>
               </span>
             </div>
           </div>
