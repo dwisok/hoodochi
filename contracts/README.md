@@ -20,7 +20,7 @@ Yield units are a ledger, not a share, not a token, not an exposure — until a 
 | Robinhood Chain mainnet (4663) | `Collar` | [`0xCCc7C1EA864E99CBe43788c203Af9c1BDfaba7c0`](https://robinhoodchain.blockscout.com/address/0xCCc7C1EA864E99CBe43788c203Af9c1BDfaba7c0) |
 | Robinhood Chain mainnet (4663) | `Hoodochi` | [`0x23409CaD886380f066329eF237a37d55950AF9Ad`](https://robinhoodchain.blockscout.com/address/0x23409CaD886380f066329eF237a37d55950AF9Ad) |
 
-Deployed 2026-09-14 from `0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f` (owner + keeper). Mint price 0.001 ETH (set via `setMintPrice` right after deploy; was 0.00197), `BASE_URI = https://www.hoodochi.io/token/` (static JSON + birth picture per id, see the site README; set with `setBaseURI` on 2026-09-15), thresholds = provisional defaults. Receipts: `broadcast/Deploy.s.sol/4663/run-latest.json`.
+Deployed 2026-09-14 from `0xC22ABb0E1b6493A6D09Db6C281B586a8343D5E0f` (owner + keeper). Mint price 0.001 ETH (set via `setMintPrice` right after deploy; was 0.00197), `BASE_URI = https://dwisok.github.io/hoodochi-tokens/token/` (static JSON + birth picture per id on GitHub Pages, see the site README; set with `setBaseURI` on 2026-09-15), thresholds = provisional defaults. Receipts: `broadcast/Deploy.s.sol/4663/run-latest.json`.
 
 ## Network
 

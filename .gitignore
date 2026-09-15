@@ -9,4 +9,4 @@ Claude outputs/
 tsconfig.tsbuildinfo
 contracts/foundry-pp/
 
-# token metadata + images live in tokens/ until the host copes with 2000 static files (see README)
+# token metadata + images live in tokens/, published from the hoodochi-tokens repo (see README)

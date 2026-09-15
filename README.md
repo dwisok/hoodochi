@@ -23,7 +23,7 @@ Routing is client-side (`src/router.tsx`); `public/.htaccess` rewrites unknown p
 
 ## Token metadata
 
-`tokenURI(id) = https://www.hoodochi.io/token/<id>` → `public/token/<id>` (JSON, birth traits, served with `ForceType application/json`) and `public/token/img/<id>.png` (the birth picture, 768×768, from the generated collection). What a Hoodochi wears right now is rendered live on `/pet/<id>`; wallets and marketplaces show the birth picture.
+`tokenURI(id) = BASE_URI + id`. The files live in `tokens/` here (`tokens/<id>` JSON with the birth traits, `tokens/img/<id>.png` the birth picture, 768×768) and are published from the public repo [dwisok/hoodochi-tokens](https://github.com/dwisok/hoodochi-tokens) on GitHub Pages: `https://dwisok.github.io/hoodochi-tokens/token/<id>`. The Hostinger deploy stalled with 2,000 extra static files, so they are not part of the site build. To republish after a change: copy `tokens/` to that repo's `token/` and push. What a Hoodochi wears right now is rendered live on `/pet/<id>`; wallets and marketplaces show the birth picture.
 
 ## Friday keeper
 
